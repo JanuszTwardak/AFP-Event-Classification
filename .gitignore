@@ -7,3 +7,8 @@ trained-models/autoencoder_04-08-2021_11-14-36/saved_model.pb
 trained-models/autoencoder_04-08-2021_11-14-36/variables/variables.data-00000-of-00001
 trained-models/autoencoder_04-08-2021_11-14-36/variables/variables.index
 extracting data to npy.ipynb
+tablica.txt
+input_root/341294_afp_hits.root
+input_root/input.root
+Root_to_numpy_conversion.ipynb
+

@@ -1,14 +1,3 @@
-input-data/331020_centr_trigger_all_2866.npy
-input-data/331020_centr_trigger_all_9656-all.npy
-input-data/331020_centr_trigger_all.root
-input-data/336505_centr_trigger_all.root
-BEST OF THE BEST BEST .ipynb
-trained-models/autoencoder_04-08-2021_11-14-36/saved_model.pb
-trained-models/autoencoder_04-08-2021_11-14-36/variables/variables.data-00000-of-00001
-trained-models/autoencoder_04-08-2021_11-14-36/variables/variables.index
-extracting data to npy.ipynb
-tablica.txt
-input_root/341294_afp_hits.root
-input_root/input.root
 Root_to_numpy_conversion.ipynb
-
+preprocessed_data/
+input_root/

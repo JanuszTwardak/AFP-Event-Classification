@@ -53,9 +53,8 @@ def main():
     loaded_data = load_preprocessed_data(PREPROCESSED_INPUT_PATH)
     loaded_data.set_index(loaded_data["evN"], inplace=True)
     dataset = pd.concat(
-        [loaded_data["hits_n"], loaded_data["hit_row_1"]], axis=1, ignore_index=True
+        [loaded_data["hits_n"], loaded_data["evN"]], axis=1, ignore_index=False
     )
-    dataset.set_index(loaded_data["evN"], inplace=True)
 
     space = (
         np.array(
@@ -72,6 +71,7 @@ def main():
 
     model = IsolationForest(ndim=1, ntrees=100).fit(dataset)
     scores = pd.DataFrame(model.predict(dataset))
+    scores.set_index(loaded_data["evN"], inplace=True)
     threshold = 0.6
 
     # print(loaded_data.sort_values(by="score", ascending=True))
@@ -85,7 +85,8 @@ def main():
         root_name=ROOT_FILE_NAME,
     )
 
-    visualizer.draw_planes(1344053190)
+    # visualizer.draw_planes(event_number=1344053190, side="c")
+    visualizer.draw_examples(examples_number=10)
 
 
 if __name__ == "__main__":

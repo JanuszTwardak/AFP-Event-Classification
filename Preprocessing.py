@@ -10,14 +10,12 @@ import sys
 
 sys.path.append(".")
 
-from Visualization.py import Visualization
-
 def read_root(ROOT_FILE_NAME, ENTRY_LIMIT, BRANCHES):
     ROOT_INPUT_PATH = "input_root/" + ROOT_FILE_NAME + ".root"
     root_file = uproot.open(ROOT_INPUT_PATH)
     tree = root_file["TreeHits"]
     tree.show()
-    dataset = tree.arrays(BRANCHES, library="pd", entry_stop=ENTRY_LIMIT)
+    dataset = tree.arrays(BRANCHES, library="pd")
     dataset = dataset.copy()
     print(dataset.head())
     return dataset
@@ -101,17 +99,6 @@ def add_average_coordinates(dataset):
     return dataset
 
 
-def add_hit_std_deviation(dataset):
-    dataset["a_std_col"] = dataset.filter(regex="^hits_col\\[[01]", axis=1).std(axis=1)
-    dataset["a_std_row"] = dataset.filter(regex="^hits_row\\[[01]", axis=1).std(axis=1)
-
-    dataset["c_std_col"] = dataset.filter(regex="^hits_col\\[[23]", axis=1).std(axis=1)
-    dataset["c_std_row"] = dataset.filter(regex="^hits_row\\[[23]", axis=1).std(axis=1)
-
-    dataset.drop(dataset.filter(regex="^hits_col", axis=1), axis=1, inplace=True)
-    dataset.drop(dataset.filter(regex="^hits_row", axis=1), axis=1, inplace=True)
-
-    return dataset
 
 
 def merge_detector_sides(dataset):
@@ -157,6 +144,18 @@ def merge_detector_sides(dataset):
 
     return dataset
 
+def add_hit_std_deviation(dataset):
+    dataset["a_std_col"] = dataset.filter(regex="^hits_col\\[[01]", axis=1).std(axis=1)
+    dataset["a_std_row"] = dataset.filter(regex="^hits_row\\[[01]", axis=1).std(axis=1)
+
+    dataset["c_std_col"] = dataset.filter(regex="^hits_col\\[[23]", axis=1).std(axis=1)
+    dataset["c_std_row"] = dataset.filter(regex="^hits_row\\[[23]", axis=1).std(axis=1)
+
+    dataset.drop(dataset.filter(regex="^hits_col", axis=1), axis=1, inplace=True)
+    dataset.drop(dataset.filter(regex="^hits_row", axis=1), axis=1, inplace=True)
+
+    return dataset
+
 
 def merge_std_deviations(dataset):
 
@@ -199,8 +198,8 @@ def save_preprocessed_dataframe(dataset, path, FILE_NAME):
 
 
 def main():
-    ROOT_FILE_NAME = "331020_afp_newhits"
-    ENTRY_LIMIT = 100
+    ROOT_FILE_NAME = "336505_afp_newhits"
+    ENTRY_LIMIT = 100000
     BRANCHES = ["evN", "hits", "hits_row", "hits_col", "hits_q"]
     preprocess_functions = [
         add_hits_number,
@@ -214,6 +213,9 @@ def main():
 
     dataset = preprocess_data(dataset, preprocess_functions)
     save_preprocessed_dataframe(dataset, path="default", FILE_NAME=ROOT_FILE_NAME)
+    
+    print("SHAPE OF FINAL EXPORTED DATASET")
+    print(dataset.shape)
 
 
 if __name__ == "__main__":

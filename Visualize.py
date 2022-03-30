@@ -3,6 +3,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 import uproot
 import time
+import os
 import pandas as pd
 from pathlib import Path
 
@@ -89,12 +90,12 @@ class Visualize:
                 hit_rows = hit_rows.transpose()
                 hit_columns = hit_columns.transpose()
 
-                hit_rows.set_axis(["value"], axis=1, inplace=True)
-                hit_columns.set_axis(["value"], axis=1, inplace=True)
+                hit_rows.set_axis(["coordinate"], axis=1, inplace=True)
+                hit_columns.set_axis(["coordinate"], axis=1, inplace=True)
 
-                for index, y in enumerate(hit_rows["value"]):
+                for index, y in enumerate(hit_rows["coordinate"]):
                     if y != -1:
-                        x = hit_columns["value"].iloc[index]
+                        x = hit_columns["coordinate"].iloc[index]
                         # TODO: charge_value instead of fixed 1 it should hold normalised value of charge
                         charge_value = 1
                         image_matrix[detector, plane, y, x] = charge_value
@@ -109,54 +110,89 @@ class Visualize:
         save_path: Optional[str] = None,
         detectors_side: Optional[str] = None,
         image_dpi: Optional[int] = 300,
-        mark_anomalies: Optional[bool] = True,
+        mark_anomalies: Optional[bool] = False,
+        is_anomaly: Optional[bool] = True,
+        side: Optional[str] = "all",
     ) -> None:
 
-        should_show = should_show or self.should_show
-        should_save = should_save or self.should_save
+        assert side == "all" or "c" or "a", "In draw_planes side != 'all' or 'a' or 'c'"
+
+        should_show = should_show if should_show is not None else self.should_show
+        should_save = should_save if should_save is not None else self.should_save
 
         event = self.dataset.loc[self.dataset["evN"] == event_number]
-        # event["a_hits_n"] = event.filter(regex="^hits\\[[01]", axis=1).sum(axis=1)
-        # event["c_hits_n"] = event.filter(regex="^hits\\[[23]", axis=1).sum(axis=1)
 
         image_matrix = self.create_image_as_matrix(event)
 
         fig = plt.figure(dpi=image_dpi)
-        rows = 2
-        columns = 8
 
-        position = 1
-        for detector in range(4):
+        rows = 2 if side == "all" else 1
+        columns = 8
+        subplot_position = 1
+        detectors = {
+            side == "all": {0, 1, 2, 3},
+            side == "a": {0, 1},
+            side == "c": {2, 3},
+        }[True]
+
+        for detector in detectors:
             for plane in range(4):
-                fig.add_subplot(rows, columns, position)
-                position += 1
+                fig.add_subplot(rows, columns, subplot_position)
+                subplot_position += 1
                 # TODO plane and detector should be swapped, probably some error?
                 plt.imshow(image_matrix[plane][detector])
                 plt.axis("off")
                 plt.tight_layout()
 
-        if self.should_save:
-            save_path = save_path or ("/output/" + self.root_name)
-            save_path = save_path + "/" if save_path[-1] != "/" else save_path
-            Path(save_path).mkdir(parents=True, exist_ok=True)
+        if should_save:
+            save_path = save_path or os.path.join("output", self.root_name)
+            if not os.path.isdir(save_path):
+                os.mkdir(save_path)
 
             if mark_anomalies:
-                is_anomaly = "anomaly" if is_anomaly else "normal"
+                anomaly_text = "anomaly" if is_anomaly else "normal"
             else:
-                is_anomaly = ""
+                anomaly_text = ""
             timestr = time.strftime("%Y%m%d-%H%M%S")
-            save_path = (
-                save_path + str(event_number) + "_" + timestr + is_anomaly + ".png"
+            save_path = os.path.join(
+                save_path, f"{anomaly_text}_{event_number}_{timestr}.png"
             )
             plt.savefig(save_path)
 
-        if self.should_show:
+        if should_show:
             plt.show()
 
-        # TODO: draw_examples([...])
-        # def draw_examples(
-        #     dataset: pd.DataFrame, scores: pd.DataFrame, examples_number: Optional[int] = 10
-        # ):
-        #     scores.sort_values(by="score", ascending=True)
+    def draw_examples(self, examples_number: Optional[int] = 10) -> None:
 
-        #     for image_counter in range(examples_number):
+        self.scores.set_axis(["score"], axis=1, inplace=True)
+        self.scores.sort_values(by="score", ascending=False)
+
+        anomaly_events = self.scores.head(examples_number)
+        normal_events = self.scores.tail(examples_number)
+        progress = {"current": 0, "total": examples_number * 2}
+
+        for event_number, row in anomaly_events.iterrows():
+            self.draw_planes(
+                int(event_number),
+                mark_anomalies=True,
+                is_anomaly=True,
+                should_show=False,
+                should_save=True,
+            )
+            progress["current"] = progress["current"] + 1
+            print(
+                "Saving images, progress:", progress["current"], "/", progress["total"]
+            )
+
+        for event_number, row in normal_events.iterrows():
+            self.draw_planes(
+                int(event_number),
+                mark_anomalies=True,
+                is_anomaly=False,
+                should_show=False,
+                should_save=True,
+            )
+            progress["current"] = progress["current"] + 1
+            print(
+                "Saving images, progress:", progress["current"], "/", progress["total"]
+            )

@@ -1,3 +1,10 @@
 Root_to_numpy_conversion.ipynb
 preprocessed_data/
 input_root/
+output/
+old/
+.ipynb_checkpoints/
+__pycache__
+point_focus_measure.py
+.vscode/
+

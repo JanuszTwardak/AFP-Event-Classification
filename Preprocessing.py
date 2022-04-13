@@ -6,26 +6,30 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.pipeline import Pipeline
 
 from sklearn.base import BaseEstimator, TransformerMixin
+from typing import List, Optional, Mapping
 import sys
 
 sys.path.append(".")
 
-def read_root(ROOT_FILE_NAME, ENTRY_LIMIT, BRANCHES):
+
+def read_root(ROOT_FILE_NAME, BRANCHES, ENTRY_LIMIT=None):
+    print("Loading and converting root file... ", end="")
     ROOT_INPUT_PATH = "input_root/" + ROOT_FILE_NAME + ".root"
     root_file = uproot.open(ROOT_INPUT_PATH)
+    print("OPENED")
     tree = root_file["TreeHits"]
-    tree.show()
-    dataset = tree.arrays(BRANCHES, library="pd")
+    dataset = tree.arrays(BRANCHES, library="pd", entry_stop=ENTRY_LIMIT)
+    print("EXTRACTED")
     dataset = dataset.copy()
-    print(dataset.head())
+    print("DONE!")
     return dataset
 
 
-def preprocess_data(dataset, functions):
-
+def preprocess_single_dataframe(dataset, functions):
+    print("Loading and converting root file... ", end="")
     for step in functions:
         dataset = step(dataset)
-        print(dataset.head())
+    print("DONE!")
     return dataset
 
 
@@ -38,7 +42,7 @@ def add_hits_number(dataset):
 
 def add_average_coordinates(dataset):
 
-    # TODO rewrite - it's for testing purposes only. Works, but is ugly as hell
+    # TODO rewrite - ugly as hell
     # first detector (in hit order, which means for side A we take detector #2 -> detector #1 data)
     weights_a_1 = dataset.filter(regex="^hits_q\\[1", axis=1).where(
         dataset.filter(regex="^hits_q\[", axis=1) != -1000001.0, 0
@@ -99,9 +103,7 @@ def add_average_coordinates(dataset):
     return dataset
 
 
-
-
-def merge_detector_sides(dataset):
+def merge_detector_sides(dataset: pd.DataFrame) -> pd.DataFrame:
     from math import sqrt
 
     MINIMUM_HIT_NUMBER = 1
@@ -144,7 +146,8 @@ def merge_detector_sides(dataset):
 
     return dataset
 
-def add_hit_std_deviation(dataset):
+
+def add_hit_std_deviation(dataset: pd.DataFrame) -> pd.DataFrame:
     dataset["a_std_col"] = dataset.filter(regex="^hits_col\\[[01]", axis=1).std(axis=1)
     dataset["a_std_row"] = dataset.filter(regex="^hits_row\\[[01]", axis=1).std(axis=1)
 
@@ -157,7 +160,7 @@ def add_hit_std_deviation(dataset):
     return dataset
 
 
-def merge_std_deviations(dataset):
+def merge_std_deviations(dataset: pd.DataFrame) -> pd.DataFrame:
 
     dataset["std_distance"] = (
         dataset["_std_col"] * dataset["_std_col"].values
@@ -170,7 +173,7 @@ def merge_std_deviations(dataset):
     return dataset
 
 
-def scale_min_max(dataset):
+def scale_min_max(dataset: pd.DataFrame) -> pd.DataFrame:
     scaler = MinMaxScaler()
     buffor_evn = dataset["evN"]
     buffor_side = dataset["side"]
@@ -189,33 +192,54 @@ def scale_min_max(dataset):
     return dataset
 
 
-def save_preprocessed_dataframe(dataset, path, FILE_NAME):
-    if path == "default":
-        path = "preprocessed_data/" + FILE_NAME + ".pkl"
+def set_indexes(dataset: pd.DataFrame) -> pd.DataFrame:
+    dataset.set_index(dataset["evN"], inplace=True)
+    print(dataset.head())
+    return dataset
+
+
+def save_preprocessed_dataframe(
+    dataset: pd.DataFrame, file_name: str, path: Optional[str] = None
+):
+    print("Saving dataset... ", end="")
+    if path is None:
+        path = "preprocessed_data/" + file_name + ".pkl"
         dataset.to_pickle(path)
     else:
         dataset.to_pickle(path)
+    print("DONE!")
+
+
+def preprocess_all(
+    root_files: Mapping[str, int],
+    branches: Optional[List[str]] = ["evN", "hits", "hits_row", "hits_col", "hits_q"],
+):
+
+    for file_name in root_files:
+
+        preprocess_functions = [
+            add_hits_number,
+            add_average_coordinates,
+            add_hit_std_deviation,
+            merge_detector_sides,
+            merge_std_deviations,
+            scale_min_max,
+            set_indexes,
+        ]
+
+        entry_limit = root_files.get(file_name)
+
+        dataset = read_root(file_name, branches, entry_limit)
+        dataset = preprocess_single_dataframe(dataset, preprocess_functions)
+        save_preprocessed_dataframe(dataset, file_name=file_name)
+
+        print("--- Preprocessing finished! ---")
+        print("Shape of the final dataset: ", dataset.shape)
 
 
 def main():
-    ROOT_FILE_NAME = "336505_afp_newhits"
-    ENTRY_LIMIT = 100000
-    BRANCHES = ["evN", "hits", "hits_row", "hits_col", "hits_q"]
-    preprocess_functions = [
-        add_hits_number,
-        add_average_coordinates,
-        add_hit_std_deviation,
-        merge_detector_sides,
-        merge_std_deviations,
-        scale_min_max,
-    ]
-    dataset = read_root(ROOT_FILE_NAME, ENTRY_LIMIT, BRANCHES)
-
-    dataset = preprocess_data(dataset, preprocess_functions)
-    save_preprocessed_dataframe(dataset, path="default", FILE_NAME=ROOT_FILE_NAME)
-    
-    print("SHAPE OF FINAL EXPORTED DATASET")
-    print(dataset.shape)
+    root_files = {"331020_afp_newhits": None, "336505_afp_newhits": 1000}
+    preprocess_all(root_files)
 
 
 if __name__ == "__main__":

@@ -1,92 +1,88 @@
+import os
 from pickle import FALSE
+import time
 import pandas as pd
 import seaborn as sns
 import numpy as np
 from sklearn.ensemble import IsolationForest
 from sympy import true
 import uproot
+from typing import List, Optional
 from matplotlib import pyplot as plt
 import sys
 from isotree import IsolationForest
-
-
-sys.path.append(".")
+import pickle
 from Visualize import Visualize
 
-ROOT_FILE_NAME = "331020_afp_newhits"
-PREPROCESSED_INPUT_PATH = "preprocessed_data/" + ROOT_FILE_NAME + ".pkl"
 
-
-def load_preprocessed_data(PREPROCESSED_INPUT_PATH):
-    df = pd.read_pickle(PREPROCESSED_INPUT_PATH)
-    print(df.head())
+def load_preprocessed_data(
+    preprocessed_input_path: str, drop_evN: Optional[bool] = True
+) -> pd.DataFrame:
+    df = pd.read_pickle(preprocessed_input_path)
+    df.set_index(df["evN"], inplace=True)
+    if drop_evN:
+        df.drop("evN", axis=1, inplace=True)
+    df.drop("side", axis=1, inplace=True)
+    print(df)
     return df
 
 
-def plot_space(Z, space_index, X):
-    df = pd.DataFrame({"z": Z}, index=space_index)
-    df = df.unstack()
-    df = df[df.columns.values[::-1]]
-    plt.imshow(df, extent=[-3, 3, -3, 3], cmap="hot_r")
-    plt.scatter(x=X["x"], y=X["y"], alpha=0.15, c="navy")
+def train_model(preprocessed_df_names: List[str]) -> IsolationForest:
+
+    model = IsolationForest(ndim=1, ntrees=100)
+
+    for filename in preprocessed_df_names:
+        preprocessed_input_path = "preprocessed_data/" + filename + ".pkl"
+        dataset = load_preprocessed_data(preprocessed_input_path)
+        model = model.fit(dataset.drop(columns=["evN", "b"]))
+    return model
 
 
-# def planes_preview(visualizer, events_number_to_show=10):
-#     normal_counter = 0
-#     anomaly_counter = 0
+def save_model(
+    model: IsolationForest, path: Optional[str] = None, progress: Optional[float] = 1.0
+) -> None:
 
-#     visualizer.draw_planes(1344530188, path="output/331020_afp_newhits/")
-
-#     for i, row in loaded_data.iterrows():
-#         if row["score"] > 0.7 and anomaly_counter < 10:
-#             visualizer.draw_planes(
-#                 1344989546, path="output/331020_afp_newhits/anomaly/"
-#             )
-#             anomaly_counter = anomaly_counter + 1
-#         elif normal_counter < 10:
-#             visualizer.draw_planes(1344989546, path="output/331020_afp_newhits/normal/")
-#             normal_counter = normal_counter + 1
-
-
-def main():
-
-    loaded_data = load_preprocessed_data(PREPROCESSED_INPUT_PATH)
-    loaded_data.set_index(loaded_data["evN"], inplace=True)
-    dataset = pd.concat(
-        [loaded_data["hits_n"], loaded_data["evN"]], axis=1, ignore_index=False
-    )
-
-    space = (
-        np.array(
-            np.meshgrid(
-                loaded_data["hits_n"],
-                loaded_data["hit_row_1"],
-            )
+    if path is None:
+        time_str = time.strftime("%Y%m%d-%H%M%S")
+        progress_str = f"{str(int(progress*100))}"
+        path = os.path.join(
+            f"IFE_{time_str}_{progress_str}.model",
         )
-        .reshape((2, -1))
-        .T
-    )
+        if not os.path.isdir(path):
+            os.mkdir(path)
 
-    space_index = pd.MultiIndex.from_arrays([space[:, 0], space[:, 1]])
+    else:
+        if not os.path.isdir(path):
+            os.mkdir(path)
 
-    model = IsolationForest(ndim=1, ntrees=100).fit(dataset)
-    scores = pd.DataFrame(model.predict(dataset))
-    scores.set_index(loaded_data["evN"], inplace=True)
-    threshold = 0.6
+    model.to_pickle(path)
 
-    # print(loaded_data.sort_values(by="score", ascending=True))
+
+def main() -> None:
+
+    dataset_name = "331020_afp_newhits"
+    preprocessed_input_path = "preprocessed_data/" + dataset_name + ".pkl"
+
+    preprocessed_df_names = ["331020_afp_newhits", "336505_afp_newhits"]
+
+    model = train_model(preprocessed_df_names)
+    save_model(model)
+
+    dataset_test = load_preprocessed_data(preprocessed_input_path, drop_evN=False)
+    scores = pd.DataFrame(model.predict(dataset_test))
+    scores.set_index(dataset_test["evN"], inplace=True)
+
+    print(dataset_test.head())
+    anomaly_threshold = 0.6
 
     visualizer = Visualize(
-        input_dataset=ROOT_FILE_NAME,
+        input_dataset=dataset_name,
         scores=scores,
-        anomaly_threshold=threshold,
-        should_save=False,
-        should_show=True,
-        root_name=ROOT_FILE_NAME,
+        anomaly_threshold=anomaly_threshold,
+        should_save=True,
+        should_show=False,
+        root_name=dataset_name,
     )
-
-    # visualizer.draw_planes(event_number=1344053190, side="c")
-    visualizer.draw_examples(examples_number=10)
 
 
 if __name__ == "__main__":

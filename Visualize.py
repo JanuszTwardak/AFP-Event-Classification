@@ -14,9 +14,9 @@ class Visualize:
         input_dataset: Union[pd.DataFrame, str],
         should_save: bool,
         should_show: bool,
-        scores: Union[pd.DataFrame, str],
+        scores: Union[pd.DataFrame, str, pd.Series],
         anomaly_threshold: float,
-        root_name: str,  # TODO change to optional parameter in final version and add such handling
+        root_name: str,
     ) -> None:
 
         self.should_save = should_save
@@ -39,8 +39,8 @@ class Visualize:
 
         return (
             input_scores
-            if isinstance(input_scores, pd.DataFrame)
-            else pd.read_pickle(input_scores)
+            # if isinstance(input_scores, pd.DataFrame)
+            # else pd.read_pickle(input_scores)
         )
 
     @staticmethod
@@ -65,6 +65,7 @@ class Visualize:
         event: pd.DataFrame,
     ) -> np.ndarray:
 
+        print(f"RYSOWANIE WYKRESU EVENT: {event}")
         DETECTORS_NUMBER = 4
         PLANES_PER_DETECTOR = 4
         Y_PIXELS = 336
@@ -96,9 +97,12 @@ class Visualize:
                 for index, y in enumerate(hit_rows["coordinate"]):
                     if y != -1:
                         x = hit_columns["coordinate"].iloc[index]
-                        # TODO: charge_value instead of fixed 1 it should hold normalised value of charge
-                        charge_value = 1
-                        image_matrix[detector, plane, y, x] = charge_value
+                        if x < 80 and y < 336:
+                            # TODO: charge_value instead of fixed 1 it should hold normalised value of charge
+                            charge_value = 1
+                            image_matrix[detector, plane, y, x] = charge_value
+                        else:
+                            print(f"ERROR! [x = {x} >= 80] or [y = {y} >= 336]")
 
         return image_matrix
 
@@ -121,9 +125,7 @@ class Visualize:
         should_save = should_save if should_save is not None else self.should_save
 
         event = self.dataset.loc[self.dataset["evN"] == event_number]
-
         image_matrix = self.create_image_as_matrix(event)
-
         fig = plt.figure(dpi=image_dpi)
 
         rows = 2 if side == "all" else 1
@@ -153,9 +155,14 @@ class Visualize:
                 anomaly_text = "anomaly" if is_anomaly else "normal"
             else:
                 anomaly_text = ""
+
+            self.scores.set_axis(["score"], axis=1, inplace=True)
+            event_score = round(self.scores.loc[event_number]["score"], 2)
+
             timestr = time.strftime("%Y%m%d-%H%M%S")
             save_path = os.path.join(
-                save_path, f"{anomaly_text}_{event_number}_{timestr}.png"
+                save_path,
+                f"{self.root_name}_{anomaly_text}_{event_number}_{event_score}_{timestr}.png",
             )
             plt.savefig(save_path)
 
@@ -164,11 +171,12 @@ class Visualize:
 
     def draw_examples(self, examples_number: Optional[int] = 10) -> None:
 
-        self.scores.set_axis(["score"], axis=1, inplace=True)
-        self.scores.sort_values(by="score", ascending=False)
-
-        anomaly_events = self.scores.head(examples_number)
-        normal_events = self.scores.tail(examples_number)
+        scores = self.scores.set_axis(["scores"], axis=1, inplace=False)
+        print(f"scores:{scores}")
+        scores = scores.sort_values(by=["scores"], ascending=False)
+        print(f"scores:{scores}")
+        anomaly_events = scores.head(examples_number)
+        normal_events = scores.tail(examples_number)
         progress = {"current": 0, "total": examples_number * 2}
 
         for event_number, row in anomaly_events.iterrows():
@@ -176,23 +184,23 @@ class Visualize:
                 int(event_number),
                 mark_anomalies=True,
                 is_anomaly=True,
-                should_show=False,
-                should_save=True,
             )
-            progress["current"] = progress["current"] + 1
-            print(
-                "Saving images, progress:", progress["current"], "/", progress["total"]
-            )
+            if self.should_save:
+                progress["current"] = progress["current"] + 1
+                print(
+                    "Saving anomaly events, progress:",
+                    progress["current"],
+                    "/",
+                    progress["total"],
+                )
 
         for event_number, row in normal_events.iterrows():
-            self.draw_planes(
-                int(event_number),
-                mark_anomalies=True,
-                is_anomaly=False,
-                should_show=False,
-                should_save=True,
-            )
-            progress["current"] = progress["current"] + 1
-            print(
-                "Saving images, progress:", progress["current"], "/", progress["total"]
-            )
+            self.draw_planes(int(event_number), mark_anomalies=True, is_anomaly=False)
+            if self.should_save:
+                progress["current"] = progress["current"] + 1
+                print(
+                    "Saving normal events, progress:",
+                    progress["current"],
+                    "/",
+                    progress["total"],
+                )

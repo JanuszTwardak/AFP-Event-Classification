@@ -11,7 +11,7 @@ import parameters as parameters
 
 
 class Preprocessing:
-    def read_root_chunk(root_name, BRANCHES, ENTRY_LIMIT=None):
+    def read_full_root(root_name, BRANCHES, ENTRY_LIMIT=None):
         print("Loading and converting root file... ", end="")
         root_path = "input_root/" + root_name + ".root"
         with uproot.open(root_path) as root_file:
@@ -25,10 +25,11 @@ class Preprocessing:
         dataset: pd.DataFrame, functions: callable, root_name: str
     ) -> pd.DataFrame:
 
-        dataset["run_number"] = int(root_name[0:6])
-
         for step in functions:
             dataset = step(dataset)
+
+        dataset["run_number"] = int(root_name[0:6])
+        dataset["run_number"] = dataset["run_number"].astype("category")
 
         return dataset
 
@@ -187,11 +188,9 @@ class Preprocessing:
     def optimize_memory(dataset: pd.DataFrame) -> pd.DataFrame:
         floats = list(dataset.drop(columns=["evN", "side", "hits_n"]).columns)
         ints = ["hits_n"]
-        categories = ["evN", "side", "run_number"]
+        categories = ["evN", "side"]
 
-        # dataset[floats] = dataset[floats].apply(pd.to_numeric, downcast="float")
         dataset[floats] = dataset[floats].astype("float16")
-        # dataset[ints] = dataset[ints].apply(pd.to_numeric, downcast="integer")
         dataset[ints] = dataset[ints].astype("uint8")
         dataset[categories] = dataset[categories].astype("category")
 
@@ -202,8 +201,7 @@ class Preprocessing:
         evN = dataset["evN"]
         side = dataset["side"]
 
-        dataset.drop("evN", axis=1, inplace=True)
-        dataset.drop("side", axis=1, inplace=True)
+        dataset.drop(["evN", "side", "run_number"], axis=1, inplace=True)
 
         scaled_values = scaler.fit_transform(dataset)
         dataset.loc[:, :] = scaled_values
@@ -254,13 +252,17 @@ class Preprocessing:
                 for chunk in tree.iterate(branches, library="pd", step_size=chunk_size):
                     chunk_iter += 1
                     file_name = single_root_name + str(chunk_iter)
+
                     chunk = Preprocessing.preprocess_single_dataframe(
                         chunk, preprocess_functions, single_root_name
                     )
+
                     Preprocessing.save_preprocessed_dataframe(
                         chunk, file_name=file_name
                     )
+
                     size_done = int(chunk_size[:-3]) * chunk_iter * 1e-3
+
                     print(
                         f"preprocessing: {single_root_name} | progress: {size_done:.2f}/{total_size:.2f} GB"
                     )

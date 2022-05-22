@@ -4,12 +4,19 @@ from time import strftime
 # preprocessed_df_path = os.path.join(
 #     "output",
 # )
-root_names = ["331020_afp_newhits"]  # "336505_afp_newhits": None}
+should_show = False
+should_save = True
+root_names = ["336505_afp_newhits"]
+trees_dimension = 1
 df_names = root_names
-memory_chunk_size = "100 MB"
+memory_chunk_size = "20 MB"
 final_results_path = os.path.join(
-    f"results_{strftime('%Y%m%d-%H%M%S')}",
+    "results_test_big",
 )
+scores_file_name = "scores.csv"
+scores_path = os.path.join(final_results_path, scores_file_name)
+preprocessed_data_path = os.path.join("preprocessed_data", "100_mb_chunks")
+root_name_suffix = "_afp_newhits.root"
 path_to_root_dict = os.path.join("input_root")
 preprocess_branches = ["evN", "hits", "hits_row", "hits_col", "hits_q"]
 preprocess_functions = [

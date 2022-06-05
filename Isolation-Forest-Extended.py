@@ -35,7 +35,6 @@ def load_preprocessed_data(preprocessed_input_path: str) -> pd.DataFrame:
     df = pd.read_pickle(preprocessed_input_path)
     df.set_index(df["evN"], inplace=True)
     df.drop("side", axis=1, inplace=True)
-    print(df)
     return df
 
 
@@ -123,11 +122,11 @@ def predict_scores(
     """
 
     save_path = parameters.scores_path
-    print(save_path)
 
     sampled_df_paths = get_sampled_df_paths(
         preprocessed_df_names, preprocessed_df_dict_path
     )
+    sampled_df_number = len(sampled_df_paths)
 
     if not os.path.isdir(final_results_path):
         os.mkdir(final_results_path)
@@ -135,7 +134,10 @@ def predict_scores(
     with open(save_path, mode="a"):
         pass
 
-    for path in sampled_df_paths:
+    for count, path in enumerate(sampled_df_paths):
+        print(
+            f"Predicting scores. Progress: {int(sampled_df_paths.index(path)/sampled_df_number*100)}"
+        )
 
         dataset = load_preprocessed_data(path)
 
@@ -203,11 +205,6 @@ def main() -> None:
     """main Trains and predicts anomaly scores of given datasets."""
     Preprocessing.ignore_simple_df_warning()
     save_parameters()
-    Preprocessing.preprocess_all(
-        parameters.root_names,
-        chunk_size=parameters.memory_chunk_size,
-        branches=parameters.preprocess_branches,
-    )
 
     DIR = parameters.preprocessed_data_path
     trees_number = len(

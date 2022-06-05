@@ -221,7 +221,7 @@ class Preprocessing:
         dataset: pd.DataFrame, file_name: str, path: Optional[str] = None
     ):
         if path is None:
-            path = os.path.join("preprocessed_data/", file_name + ".pkl")
+            path = os.path.join(parameters.preprocessed_data_path, file_name + ".pkl")
             dataset.to_pickle(path)
         else:
             dataset.to_pickle(path)

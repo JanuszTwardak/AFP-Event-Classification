@@ -161,7 +161,7 @@ class Visualize:
         if not os.path.isdir(save_path):
             os.mkdir(save_path)
         event_score = event_score * 100
-        print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@", event_score)
+
         save_path = os.path.join(
             save_path,
             f"{int(event_score)}_{run_number}_{event_number}.png",
@@ -193,6 +193,8 @@ class Visualize:
             event_number=event_number, run_number=run_number
         )
 
+        print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@", event)
+
         image_matrix = self.create_image_as_matrix(event)
 
         side = "a" if np.sum(image_matrix[0][0]) > np.sum(image_matrix[0][3]) else "c"
@@ -209,7 +211,7 @@ class Visualize:
             should_save=should_save,
         )
 
-    def get_extreme_scores_id(
+    def get_extreme_scores(
         self,
         max_number: int,
         min_number: int,
@@ -247,8 +249,9 @@ class Visualize:
                 library="pd",
                 step_size=memory_chunk_size,
             ):
-
-                return chunk[chunk["evN"] == event_number]
+                wanted_event = chunk[chunk["evN"] == event_number]
+                if not len(wanted_event.index) == 0:
+                    return wanted_event
 
         raise KeyError(
             f"find_event_in_loop(): event_number {event_number} not found in {run_number}"
@@ -273,13 +276,17 @@ class Visualize:
 
     def draw_examples(self, examples_number: Optional[int] = 10) -> None:
 
-        max_events_id, min_events_id = self.get_extreme_scores_id(
+        max_events_id, min_events_id = self.get_extreme_scores(
             examples_number, examples_number, parameters.scores_path
         )
+        print("@@@@@@@@@@@@@@@@@@@@@@@@@@@", max_events_id)
 
         progress = {"current": 0, "total": examples_number * 2}
 
         for _, event in max_events_id.iterrows():
+            print(
+                f"event: {event} \n event_number: {event['event_number']} \n run_number: {event['run_number']} \n event_score: {event['score']}"
+            )
             self.draw_event(
                 event_number=int(event["event_number"]),
                 run_number=int(event["run_number"]),
@@ -325,7 +332,7 @@ def test():
         save_path=parameters.final_results_path,
     )
 
-    visualizer.draw_examples(examples_number=5)
+    visualizer.draw_examples(examples_number=20)
 
 
 if __name__ == "__main__":

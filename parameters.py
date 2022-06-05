@@ -15,7 +15,7 @@ final_results_path = os.path.join(
 )
 scores_file_name = "scores.csv"
 scores_path = os.path.join(final_results_path, scores_file_name)
-preprocessed_data_path = os.path.join("preprocessed_data", "100_mb_chunks")
+preprocessed_data_path = os.path.join("preprocessed_data")
 root_name_suffix = "_afp_newhits.root"
 path_to_root_dict = os.path.join("input_root")
 preprocess_branches = ["evN", "hits", "hits_row", "hits_col", "hits_q"]

@@ -7,4 +7,7 @@ old/
 __pycache__
 point_focus_measure.py
 .vscode/
-
+ Get-Data-From-Scores.py
+dask-worker-space/
+results_*/
+Get-Data-From-Scores.py

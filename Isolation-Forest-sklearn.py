@@ -105,4 +105,4 @@ if __name__ == "__main__":
 
     i = 0
 
-    visualize.draw_planes(853927973)
+    visualize.draw_event(853927973)

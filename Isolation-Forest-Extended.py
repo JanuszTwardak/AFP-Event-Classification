@@ -2,13 +2,14 @@ import os
 from pickle import FALSE
 import shutil
 import time
+import warnings
 import pandas as pd
 import seaborn as sns
 import numpy as np
 from sklearn.ensemble import IsolationForest
 from sympy import true
 import uproot
-from typing import List, Optional
+from typing import List, Literal, Optional
 from matplotlib import pyplot as plt
 import sys
 from isotree import IsolationForest
@@ -17,6 +18,7 @@ from Visualize import Visualize
 import pickle
 import parameters as parameters
 from Preprocessing import Preprocessing
+from dask import dataframe as ddf
 
 
 def load_preprocessed_data(preprocessed_input_path: str) -> pd.DataFrame:
@@ -106,6 +108,7 @@ def predict_scores(
     preprocessed_df_names: List[str],
     preprocessed_df_dict_path: Optional[str] = parameters.preprocessed_data_path,
     final_results_path: Optional[str] = parameters.final_results_path,
+    file_format: Optional[Literal["csv", "parquet"]] = "parquet",
 ) -> None:
     """predict_scores Using already trained model predict dataframe anomaly scores. They will be saved in .csv file.
 
@@ -131,10 +134,10 @@ def predict_scores(
     if not os.path.isdir(final_results_path):
         os.mkdir(final_results_path)
 
-    with open(save_path, mode="a"):
-        pass
+    # with open(save_path, mode="a"):
+    #     pass
 
-    for count, path in enumerate(sampled_df_paths):
+    for path in sampled_df_paths:
         print(
             f"Predicting scores. Progress: {int(sampled_df_paths.index(path)/sampled_df_number*100)}"
         )
@@ -150,11 +153,24 @@ def predict_scores(
         scores["event_number"] = dataset["evN"]
         scores["run_number"] = dataset["run_number"]
 
-        scores = optimize_csv_memory(scores)
-        scores.to_csv(save_path, mode="a", index=False, header=False)
+        scores = optimize_df_memory(scores)
+
+        scores = ddf.from_pandas(scores)
+
+        if file_format == "parquet":
+            ddf.to_parquet(
+                df=scores,
+                path=save_path,
+                append=True,
+                overwrite=False,
+            )
+        elif file_format == "csv":
+            scores.to_csv(save_path, mode="a", index=False, header=False)
+        else:
+            warnings.warn(f"No file format named <{file_format}>, saving as parquet.")
 
 
-def optimize_csv_memory(dataset: pd.DataFrame) -> pd.DataFrame:
+def optimize_df_memory(dataset: pd.DataFrame) -> pd.DataFrame:
     floats = ["scores"]
     categories = ["event_number", "run_number"]
 
